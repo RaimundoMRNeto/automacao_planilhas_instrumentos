@@ -65,18 +65,23 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-      # === NOVO: envio automático ao Google Drive via rclone ===
-      - name: Install rclone (Ubuntu)
+            # === Upload automático ao OneDrive via rclone ===
+      - name: Install rclone
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
 
-      - name: Upload to Google Drive via rclone
+      - name: Upload to OneDrive via rclone
         if: success()
         env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG_ONEDRIVE }}
         run: |
           # recria o rclone.conf a partir do secret
-          echo "$RCLONE_CONFIG" > rclone.conf
-          # envia o Excel para a pasta do Drive
-          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "gdrive:/COPREC/automacao_planilhas_instrumentos/" -v
+          printf "%s" "$RCLONE_CONFIG" > rclone.conf
+          
+          # cria pasta destino se ainda não existir
+          rclone --config rclone.conf mkdir "onedrive:MDA/COPREC/automacao_planilhas_instrumentos" || true
+          
+          # copia o Excel gerado para o OneDrive
+          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "onedrive:/COPREC/automacao_planilhas_instrumentos" \
+                 --progress --stats-one-line --stats=30s --update --drive-use-trash=false
