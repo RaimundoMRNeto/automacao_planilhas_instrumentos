@@ -1,8 +1,8 @@
 name: Run ETL SICONV (manual/scheduled)
 
 on:
-  workflow_dispatch: {}         # execução manual pelo Actions
-  # schedule:                   # (opcional) rodar todo dia 06:30 (SP) ~ 09:30 UTC
+  workflow_dispatch: {}
+  # schedule:
   #   - cron: "30 9 * * *"
 
 concurrency:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  TZ: America/Sao_Paulo        # timestamps locais em SP
+  TZ: America/Sao_Paulo
 
 jobs:
   etl:
@@ -37,14 +37,13 @@ jobs:
       - name: Prepare folders
         run: |
           mkdir -p config data/cache out/current out/backups state
-          # Mantém execução mesmo se o arquivo de IDs não existir no repositório
-          if [ ! -f "config/ids_convenio.txt" ]; then
-            echo "700000" > config/ids_convenio.txt
-          fi
-          # Mantém um columns_convenio.yaml vazio se não houver tipagem customizada
-          if [ ! -f "config/columns_convenio.yaml" ]; then
-            echo "tipos_colunas: {}" > config/columns_convenio.yaml
-          fi
+          if [ ! -f "config/ids_convenio.txt" ]; then echo "700000" > config/ids_convenio.txt; fi
+          if [ ! -f "config/columns_convenio.yaml" ]; then echo "tipos_colunas: {}" > config/columns_convenio.yaml; fi
+
+      # >>> garante que o ETL gere o XLSX mesmo se a data_carga não mudou
+      - name: Force re-run (limpa state)
+        run: |
+          rm -f state/last_run.json || true
 
       - name: Run ETL
         run: |
@@ -65,7 +64,7 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-            # === Upload automático ao OneDrive via rclone (usa secret RCLONE_CONFIG) ===
+      # === Upload automático ao OneDrive via rclone (usa secret RCLONE_CONFIG) ===
       - name: Install rclone
         run: |
           sudo apt-get update
@@ -82,15 +81,12 @@ jobs:
           echo "== Remotos no conf =="
           grep -o '^\[[^]]\+\]' rclone.conf || true
 
-          # Detecta o nome da primeira seção (remoto)
           REMOTE="$(awk -F'[][]' '/^\[.*\]/{print $2; exit}' rclone.conf)"
           [ -n "${REMOTE:-}" ] || { echo "ERRO: não foi possível detectar o remoto no rclone.conf"; exit 1; }
           echo "Remoto detectado: $REMOTE"
 
-          # Confere arquivo gerado
           [ -f "out/current/siconv_convenio_filtrado_atual.xlsx" ] || { echo "ERRO: Excel não encontrado em out/current/"; exit 1; }
 
-          # Documents vs Documentos
           BASE="Documents"
           if ! rclone --config rclone.conf lsd "$REMOTE:/$BASE" >/dev/null 2>&1; then
             BASE="Documentos"
@@ -99,7 +95,6 @@ jobs:
 
           DEST="$REMOTE:/$BASE/MDA/COPREC/automacao_planilhas_instrumentos"
 
-          # Cria estrutura e diagnostica
           rclone --config rclone.conf mkdir "$REMOTE:/$BASE" || true
           rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA" || true
           rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA/COPREC" || true
@@ -110,6 +105,5 @@ jobs:
           rclone --config rclone.conf lsd "$REMOTE:/$BASE/MDA/COPREC" || true
           rclone --config rclone.conf lsd "$DEST" || true
 
-          # Upload
           rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST" \
                  --progress --stats-one-line --stats=30s --update --onedrive-no-versions
