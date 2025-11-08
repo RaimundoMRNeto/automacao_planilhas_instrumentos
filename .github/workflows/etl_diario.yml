@@ -70,7 +70,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rclone
 
-      - name: Upload to OneDrive via rclone (Documents/MDA)
+            - name: Upload to OneDrive via rclone (auto-base: raiz/Documents/Documentos)
         if: success()
         env:
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
@@ -81,36 +81,41 @@ jobs:
           echo "== Seções no rclone.conf =="
           grep -o '^\[[^]]\+\]' rclone.conf || true
 
-          # Escolhe o remoto: usa [onedrive] se existir; senão a 1ª seção
+          # REMOTE: usa [onedrive] se existir; senão, 1ª seção do arquivo
           if grep -q '^\[onedrive\]' rclone.conf; then
             REMOTE="onedrive"
           else
             REMOTE="$(awk -F'[][]' '/^\[.*\]/{print $2; exit}' rclone.conf)"
           fi
-          [ -n "${REMOTE:-}" ] || { echo "ERRO: não foi possível detectar o REMOTE no rclone.conf"; exit 1; }
+          [ -n "${REMOTE:-}" ] || { echo "ERRO: REMOTE não detectado no rclone.conf"; exit 1; }
           echo "REMOTE escolhido: $REMOTE"
 
-          # Preferimos "Documents"; se não existir, usamos "Documentos"
-          BASE="Documents"
-          if ! rclone --config rclone.conf lsd "$REMOTE:/$BASE" >/dev/null 2>&1; then
-            BASE="Documentos"
-          fi
-          echo "Base: $BASE"
+          echo "== Listando raiz do REMOTE =="
+          rclone --config rclone.conf lsd "$REMOTE:/" || true
 
-          DEST_CURRENT="$REMOTE:/$BASE/MDA/COPREC/automacao_planilhas_instrumentos"
+          # Detecta base: "/Documents", "/Documentos" ou raiz ("")
+          BASE_PREFIX=""
+          if rclone --config rclone.conf lsd "$REMOTE:/Documents" >/dev/null 2>&1; then
+            BASE_PREFIX="/Documents"
+          elif rclone --config rclone.conf lsd "$REMOTE:/Documentos" >/dev/null 2>&1; then
+            BASE_PREFIX="/Documentos"
+          fi
+          echo "BASE_PREFIX: '$BASE_PREFIX'"
+
+          DEST_CURRENT="$REMOTE:${BASE_PREFIX}/MDA/COPREC/automacao_planilhas_instrumentos"
           TODAY="$(date +%Y/%m/%d)"
-          DEST_BACKUPS="$REMOTE:/$BASE/MDA/COPREC/backups/$TODAY"
+          DEST_BACKUPS="$REMOTE:${BASE_PREFIX}/MDA/COPREC/backups/$TODAY"
 
           # Garante estrutura
-          rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA" || true
-          rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA/COPREC" || true
+          rclone --config rclone.conf mkdir "$REMOTE:${BASE_PREFIX}/MDA" || true
+          rclone --config rclone.conf mkdir "$REMOTE:${BASE_PREFIX}/MDA/COPREC" || true
           rclone --config rclone.conf mkdir "$DEST_CURRENT" || true
           rclone --config rclone.conf mkdir "$DEST_BACKUPS" || true
 
           # Confere arquivo local
           [ -f "out/current/siconv_convenio_filtrado_atual.xlsx" ] || { echo "ERRO: Excel não encontrado em out/current/"; exit 1; }
 
-          # Envia o arquivo “atual”
+          # Envia arquivo “atual”
           rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST_CURRENT" \
                  --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
                  --retries 5 --low-level-retries 20 --retries-sleep 2s
@@ -121,5 +126,6 @@ jobs:
                  --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
                  --retries 5 --low-level-retries 20 --retries-sleep 2s || true
 
-          echo "== Verificação (CURRENT) ==";  rclone --config rclone.conf lsl "$DEST_CURRENT"  || true
-          echo "== Verificação (BACKUPS) ==";  rclone --config rclone.conf lsl "$DEST_BACKUPS"  || true
+          # Verificações
+          echo "== Verificação (CURRENT) ==";   rclone --config rclone.conf lsl "$DEST_CURRENT"  || true
+          echo "== Verificação (BACKUPS) ==";   rclone --config rclone.conf lsl "$DEST_BACKUPS"  || true
