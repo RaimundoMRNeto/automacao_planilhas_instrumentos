@@ -65,7 +65,7 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-            # === Upload automático ao OneDrive via rclone ===
+      # === Upload automático ao OneDrive via rclone ===
       - name: Install rclone
         run: |
           sudo apt-get update
@@ -76,12 +76,28 @@ jobs:
         env:
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG_ONEDRIVE }}
         run: |
-          # recria o rclone.conf a partir do secret
           printf "%s" "$RCLONE_CONFIG" > rclone.conf
-          
-          # cria pasta destino se ainda não existir
-          rclone --config rclone.conf mkdir "onedrive:MDA/COPREC/automacao_planilhas_instrumentos" || true
-          
-          # copia o Excel gerado para o OneDrive
-          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "onedrive:/COPREC/automacao_planilhas_instrumentos" \
+
+          # Detecta raiz (EN/PT) e monta destino
+          BASE="Documents"
+          if ! rclone --config rclone.conf lsd "onedrive:/$BASE" >/dev/null 2>&1; then
+            BASE="Documentos"
+          fi
+          echo "Base OneDrive detectada: $BASE"
+          DEST="onedrive:/$BASE/MDA/COPREC/automacao_planilhas_instrumentos"
+
+          # Garante estrutura
+          rclone --config rclone.conf mkdir "onedrive:/$BASE" || true
+          rclone --config rclone.conf mkdir "onedrive:/$BASE/MDA" || true
+          rclone --config rclone.conf mkdir "onedrive:/$BASE/MDA/COPREC" || true
+          rclone --config rclone.conf mkdir "$DEST" || true
+
+          # (Diagnóstico útil no log)
+          rclone --config rclone.conf lsd "onedrive:/$BASE" || true
+          rclone --config rclone.conf lsd "onedrive:/$BASE/MDA" || true
+          rclone --config rclone.conf lsd "onedrive:/$BASE/MDA/COPREC" || true
+          rclone --config rclone.conf lsd "$DEST" || true
+
+          # Copia o Excel
+          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST" \
                  --progress --stats-one-line --stats=30s --update --drive-use-trash=false
