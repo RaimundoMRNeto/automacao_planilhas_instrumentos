@@ -64,13 +64,13 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-            # === Upload automático ao Google Drive via rclone (usa remoto fixo 'gdrive') ===
+      # === Upload automático ao One Drive via rclone
       - name: Install rclone
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
 
-      - name: Upload to Google Drive via rclone
+            - name: Upload to OneDrive via rclone (RAIZ/MDA/...)
         if: success()
         env:
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
@@ -78,23 +78,34 @@ jobs:
           set -euo pipefail
           printf "%s" "$RCLONE_CONFIG" > rclone.conf
 
-          # remoto fixo (evita autodeteção)
-          REMOTE="gdrive"
-          DEST="$REMOTE:/MDA/COPREC/automacao_planilhas_instrumentos"
+          # remoto fixo
+          REMOTE="onedrive"
 
-          # arquivo precisa existir (ETL gerou antes)
+          # destinos (na RAIZ do OneDrive, não em Documents)
+          DEST_CURRENT="$REMOTE:/MDA/COPREC/automacao_planilhas_instrumentos"
+          TODAY="$(date +%Y/%m/%d)"
+          DEST_BACKUPS="$REMOTE:/MDA/COPREC/backups/$TODAY"
+
+          # arquivo local precisa existir
           [ -f "out/current/siconv_convenio_filtrado_atual.xlsx" ] || { echo "ERRO: Excel não encontrado em out/current/"; exit 1; }
 
-          # garante estrutura (idempotente)
+          # garante estrutura
           rclone --config rclone.conf mkdir "$REMOTE:/MDA" || true
           rclone --config rclone.conf mkdir "$REMOTE:/MDA/COPREC" || true
-          rclone --config rclone.conf mkdir "$DEST" || true
+          rclone --config rclone.conf mkdir "$DEST_CURRENT" || true
+          rclone --config rclone.conf mkdir "$DEST_BACKUPS" || true
 
-          # upload com algumas tentativas
-          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST" \
-                 --progress --stats-one-line --stats=30s --update --drive-use-trash=false \
+          # envia arquivo “atual”
+          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST_CURRENT" \
+                 --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
                  --retries 5 --low-level-retries 20 --retries-sleep 2s
 
-          # verificação final: lista o destino
-          echo "== Conteúdo do destino =="
-          rclone --config rclone.conf lsl "$DEST" || true
+          # envia backups do dia (se existirem)
+          rclone --config rclone.conf copy "out/backups/$(date +%Y)/$(date +%m)/$(date +%d)/" "$DEST_BACKUPS" \
+                 --create-empty-src-dirs --include "*.xlsx" \
+                 --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
+                 --retries 5 --low-level-retries 20 --retries-sleep 2s || true
+
+          # verificação final
+          echo "== Verificação (CURRENT) ==";  rclone --config rclone.conf lsl "$DEST_CURRENT"  || true
+          echo "== Verificação (BACKUPS) ==";  rclone --config rclone.conf lsl "$DEST_BACKUPS"  || true
