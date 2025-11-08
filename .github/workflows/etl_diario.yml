@@ -64,13 +64,13 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-      # === Upload automático ao One Drive via rclone
+            # === Upload automático ao OneDrive via rclone
       - name: Install rclone
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
 
-            - name: Upload to OneDrive via rclone (RAIZ/MDA/...)
+      - name: Upload to OneDrive via rclone (RAIZ/MDA/...)
         if: success()
         env:
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
