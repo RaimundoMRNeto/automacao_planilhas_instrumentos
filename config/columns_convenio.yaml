@@ -1,0 +1,58 @@
+# ==============================================================
+# Configuração de colunas do SICONV (sem renomear)
+# ==============================================================
+# Objetivo:
+# - Manter todas as colunas originais do dataset.
+# - Definir apenas a ORDEM lógica das colunas no XLSX final:
+#   1. NR_CONVENIO
+#   2. Colunas de texto
+#   3. Colunas de data
+#   4. Colunas numéricas
+# ==============================================================
+
+modo: completo
+manter_todas: true
+
+# Define a prioridade da ordem
+ordem_prioridade:
+  - NR_CONVENIO
+  - texto
+  - data
+  - numerico
+
+# Classificação dos tipos de dados
+tipos_colunas:
+  texto: [
+    ID_PROPOSTA,
+    SIT_CONVENIO,
+    SUBSITUACAO_CONV,
+    IND_ASSINADO,
+    SITUACAO_PUBLICACAO,
+    INSTRUMENTO_ATIVO,
+    IND_OPERA_OBTV,
+    NR_PROCESSO,
+    UG_EMITENTE,
+    COD_ORGAO_SUP_CONVENENTE,
+    COD_ORGAO_CONCEDENTE,
+    NOM_ORGAO_SUP_CONVENENTE,
+    NOM_ORGAO_CONCEDENTE
+  ]
+
+  data: [
+    DIA_ASSIN_CONV,
+    DIA_PUBL_CONV,
+    DIA_INIC_VIGENC_CONV,
+    DIA_FIM_VIGENC_CONV,
+    DIA_FIM_VIGENC_ORIGINAL_CONV
+  ]
+
+  numerico: [
+    QTD_TA,
+    QTD_PRORROGA,
+    VL_GLOBAL_CONV,
+    VL_REPASSE_CONV,
+    VL_CONTRAPARTIDA_CONV,
+    VL_EMPENHADO_CONV,
+    VL_DESEMBOLSADO_CONV,
+    VL_SALDO_CONTA
+  ]

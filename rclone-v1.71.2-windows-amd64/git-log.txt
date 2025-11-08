@@ -1,0 +1,155 @@
+commit 84a85367111c84061c959e01e0c320618e492dc6
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Mon Oct 20 12:59:58 2025 +0100
+
+    Version v1.71.2
+
+commit 4013f006b8a444197fdb43b58e4c20e087d2a87a
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Fri Oct 17 11:47:17 2025 +0100
+
+    docs: update sponsors
+
+commit 371fc61191ae927580ccfb396aca66fb2b1efe9a
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Wed Oct 15 16:30:23 2025 +0100
+
+    docs: update sponsor images
+
+commit 0d9a95125cef5fcb089252b8c264608f1b2a61f2
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Tue Oct 14 12:00:29 2025 +0100
+
+    docs: update privacy policy with a section on user data
+
+commit 386d3c5b4d0a97de0e24404eb2819483d758387d
+Author: Dulani Woods <Dulani@gmail.com>
+Date:   Tue Sep 30 03:20:48 2025 -0400
+
+    gcs: add region us-east5 - fixes #8863
+
+commit 3dceb72e9be62e7cd0d58ec2d87cf4a03d5969d9
+Author: dougal <dougal.craigwood@gmail.com>
+Date:   Fri Oct 10 14:33:23 2025 +0100
+
+    index: add missing providers
+
+commit 30b016d8c0b8048e318b38c4cdfd5e70aefa6b93
+Author: dougal <dougal.craigwood@gmail.com>
+Date:   Fri Oct 10 14:29:47 2025 +0100
+
+    docs: add missing `
+
+commit b8e6d454820f908a2067ba10de5d3894c223b80c
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Fri Sep 26 12:28:10 2025 +0100
+
+    mega: fix 402 payment required errors - fixes #8758
+    
+    The underlying library now supports hashcash which should fix this
+    problem.
+
+commit dfdc69a3e15afd26427b52d98df9aa0f218bbd80
+Author: iTrooz <hey@itrooz.fr>
+Date:   Sat Oct 4 08:10:49 2025 +0200
+
+    docs: fix variants of --user-from-header
+
+commit 0908c346bbd2623044943d848e5c56b565e99a8d
+Author: albertony <12441419+albertony@users.noreply.github.com>
+Date:   Thu Oct 2 18:00:36 2025 +0200
+
+    docs: add remote setup page to main docs dropdown
+
+commit f186b7554e09fbf78f1b58e346b75be52c240590
+Author: albertony <12441419+albertony@users.noreply.github.com>
+Date:   Thu Oct 2 15:19:55 2025 +0200
+
+    docs: update remote setup page
+
+commit 4bbab927fa11079a6d61b486fc3252d58af94278
+Author: albertony <12441419+albertony@users.noreply.github.com>
+Date:   Thu Oct 2 15:18:11 2025 +0200
+
+    docs: add link from authorize command docs to remote setup docs
+
+commit 1c119f9330edadb7acbdd88576c7d1d6ca613996
+Author: albertony <12441419+albertony@users.noreply.github.com>
+Date:   Thu Oct 2 14:52:58 2025 +0200
+
+    docs: lowercase internet and web browser instead of Internet browser
+
+commit 089c4b1a69f910070397890788b96322ce1db1eb
+Author: albertony <12441419+albertony@users.noreply.github.com>
+Date:   Thu Oct 2 14:44:14 2025 +0200
+
+    docs: use the term backend name instead of fs name for authorize command
+
+commit b5ba737e14fc89fdf3268dab0fe0f7688e7c80d6
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Sun Sep 21 12:59:44 2025 +0100
+
+    bisync: fix race when CaptureOutput is used concurrently #8815
+    
+    Before this change CaptureOutput could trip the race detector when
+    used concurrently. In particular if go routines using the logging are
+    outlasting the return from `fun()`.
+    
+    This fixes the problem with a mutex.
+
+commit 15f727f0e33b9fa430bc4327179bf00b134a07f9
+Author: Vikas Bhansali <64532198+vibhansa-msft@users.noreply.github.com>
+Date:   Fri Sep 26 17:11:42 2025 +0530
+
+    azurefiles: Fix server side copy not waiting for completion -  fixes #8848
+
+commit 01e1f902166b40ad213486c34d5ed3df974fc50a
+Author: Youfu Zhang <1315097+zhangyoufu@users.noreply.github.com>
+Date:   Fri Sep 19 11:46:26 2025 +0800
+
+    pikpak: fix unnecessary retries by using URL expire parameter - fixes #8601
+    
+    Before this change, rclone would unnecessarily retry downloads when
+    the `Link.Expire` field was unreliable but the download URL contained
+    a valid expire query parameter. This primarily affects cases where
+    media links are unavailable or when `no_media_link` is enabled.
+    
+    The `Link.Valid()` method now primarily checks the URL's expire query
+    parameter (as Unix timestamp) and falls back to the Expire field
+    only when URL parsing fails. This eliminates the `error no link`
+    retry loops while maintaining backward compatibility.
+    
+    Signed-off-by: Youfu Zhang <zhangyoufu@gmail.com>
+
+commit 997c73b586ac9497be7636867c416419a80b1e10
+Author: dougal <dougal.craigwood@gmail.com>
+Date:   Thu Sep 18 12:09:37 2025 +0100
+
+    serve http: fix: logging url on start
+
+commit ccd01f1a685e95f594e8141ce299cfbcd5a6c819
+Author: Matt LaPaglia <mlapaglia@gmail.com>
+Date:   Tue Sep 16 08:27:10 2025 -0400
+
+    docs: fix typo
+
+commit 63c0dc773c8fc35ec17c5637cbae3ec7c159b4c0
+Author: dougal <dougal.craigwood@gmail.com>
+Date:   Mon Sep 15 12:18:00 2025 +0100
+
+    b2: fix 1TB+ uploads
+    
+    Before this change the minimum chunk size would default to 96M which
+    would allow a maximum size of just below 1TB file to be uploaded, due to
+    the 10000 part rule for b2.
+    
+    Now the calculated chunk size is used so the chunk size can be 5GB
+    making a max file size of 50TB.
+    
+    Fixes #8460
+
+commit f1e6bffc14f4403be3b056722290db1d560c6b8a
+Author: Nick Craig-Wood <nick@craig-wood.com>
+Date:   Wed Sep 24 17:33:54 2025 +0100
+
+    Start v1.71.2-DEV development

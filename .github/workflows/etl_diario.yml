@@ -1,0 +1,82 @@
+name: Run ETL SICONV (manual/scheduled)
+
+on:
+  workflow_dispatch: {}         # execução manual pelo Actions
+  # schedule:                   # (opcional) rodar todo dia 06:30 (SP) ~ 09:30 UTC
+  #   - cron: "30 9 * * *"
+
+concurrency:
+  group: etl-siconv
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TZ: America/Sao_Paulo        # timestamps locais em SP
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare folders
+        run: |
+          mkdir -p config data/cache out/current out/backups state
+          # Mantém execução mesmo se o arquivo de IDs não existir no repositório
+          if [ ! -f "config/ids_convenio.txt" ]; then
+            echo "700000" > config/ids_convenio.txt
+          fi
+          # Mantém um columns_convenio.yaml vazio se não houver tipagem customizada
+          if [ ! -f "config/columns_convenio.yaml" ]; then
+            echo "tipos_colunas: {}" > config/columns_convenio.yaml
+          fi
+
+      - name: Run ETL
+        run: |
+          python etl_pipeline.py
+
+      - name: Upload artifact (Excel atual)
+        uses: actions/upload-artifact@v4
+        with:
+          name: siconv_convenio_filtrado_atual
+          path: out/current/siconv_convenio_filtrado_atual.xlsx
+          if-no-files-found: warn
+
+      - name: Upload artifacts (backup do dia)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: siconv_backups_${{ github.run_id }}
+          path: out/backups/**
+          if-no-files-found: ignore
+
+      # === NOVO: envio automático ao Google Drive via rclone ===
+      - name: Install rclone (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rclone
+
+      - name: Upload to Google Drive via rclone
+        if: success()
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          # recria o rclone.conf a partir do secret
+          echo "$RCLONE_CONFIG" > rclone.conf
+          # envia o Excel para a pasta do Drive
+          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "gdrive:/COPREC/automacao_planilhas_instrumentos/" -v
