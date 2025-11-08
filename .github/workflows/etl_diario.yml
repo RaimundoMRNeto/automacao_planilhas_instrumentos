@@ -64,7 +64,7 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-      # === Upload automático ao OneDrive via rclone
+            # === Upload automático ao OneDrive via rclone
       - name: Install rclone
         run: |
           sudo apt-get update
