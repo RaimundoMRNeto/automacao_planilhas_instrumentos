@@ -64,13 +64,13 @@ jobs:
           path: out/backups/**
           if-no-files-found: ignore
 
-      # === Upload automático ao OneDrive via rclone (usa secret RCLONE_CONFIG) ===
+            # === Upload automático ao Google Drive via rclone (usa remoto fixo 'gdrive') ===
       - name: Install rclone
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
 
-      - name: Upload to OneDrive via rclone
+      - name: Upload to Google Drive via rclone
         if: success()
         env:
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
@@ -78,32 +78,23 @@ jobs:
           set -euo pipefail
           printf "%s" "$RCLONE_CONFIG" > rclone.conf
 
-          echo "== Remotos no conf =="
-          grep -o '^\[[^]]\+\]' rclone.conf || true
+          # remoto fixo (evita autodeteção)
+          REMOTE="gdrive"
+          DEST="$REMOTE:/MDA/COPREC/automacao_planilhas_instrumentos"
 
-          REMOTE="$(awk -F'[][]' '/^\[.*\]/{print $2; exit}' rclone.conf)"
-          [ -n "${REMOTE:-}" ] || { echo "ERRO: não foi possível detectar o remoto no rclone.conf"; exit 1; }
-          echo "Remoto detectado: $REMOTE"
-
+          # arquivo precisa existir (ETL gerou antes)
           [ -f "out/current/siconv_convenio_filtrado_atual.xlsx" ] || { echo "ERRO: Excel não encontrado em out/current/"; exit 1; }
 
-          BASE="Documents"
-          if ! rclone --config rclone.conf lsd "$REMOTE:/$BASE" >/dev/null 2>&1; then
-            BASE="Documentos"
-          fi
-          echo "Base OneDrive: $BASE"
-
-          DEST="$REMOTE:/$BASE/MDA/COPREC/automacao_planilhas_instrumentos"
-
-          rclone --config rclone.conf mkdir "$REMOTE:/$BASE" || true
-          rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA" || true
-          rclone --config rclone.conf mkdir "$REMOTE:/$BASE/MDA/COPREC" || true
+          # garante estrutura (idempotente)
+          rclone --config rclone.conf mkdir "$REMOTE:/MDA" || true
+          rclone --config rclone.conf mkdir "$REMOTE:/MDA/COPREC" || true
           rclone --config rclone.conf mkdir "$DEST" || true
 
-          rclone --config rclone.conf lsd "$REMOTE:/$BASE" || true
-          rclone --config rclone.conf lsd "$REMOTE:/$BASE/MDA" || true
-          rclone --config rclone.conf lsd "$REMOTE:/$BASE/MDA/COPREC" || true
-          rclone --config rclone.conf lsd "$DEST" || true
-
+          # upload com algumas tentativas
           rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST" \
-                 --progress --stats-one-line --stats=30s --update --onedrive-no-versions
+                 --progress --stats-one-line --stats=30s --update --drive-use-trash=false \
+                 --retries 5 --low-level-retries 20 --retries-sleep 2s
+
+          # verificação final: lista o destino
+          echo "== Conteúdo do destino =="
+          rclone --config rclone.conf lsl "$DEST" || true
