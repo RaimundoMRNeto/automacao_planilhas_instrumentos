@@ -1,14 +1,51 @@
-name: Test upload to OneDrive Personal
+name: ETL SICONV → OneDrive (MDA/COPREC)
 
 on:
   workflow_dispatch: {}  # executa manualmente
+  # schedule:
+  #   - cron: "30 12 * * *"  # opcional: agenda diária 12:30 UTC (~09:30 Brasília)
+
+env:
+  OUT_DIR: out/current
+  OUT_FILE: siconv_convenio_filtrado_atual.xlsx
+  ONEDRIVE_DEST: "onedrive:MDA/COPREC"   # destino desejado no OneDrive
 
 jobs:
-  test-onedrive:
+  etl-onedrive:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Seed minimal config if missing
+        run: |
+          mkdir -p config data/cache out/current out/backups state
+          if [ ! -f "config/ids_convenio.txt" ]; then echo "700000" > config/ids_convenio.txt; fi
+          if [ ! -f "config/columns_convenio.yaml" ]; then
+            cat > config/columns_convenio.yaml <<'YAML'
+tipos_colunas:
+  texto: []
+  data: []
+  numerico: []
+YAML
+          fi
+
+      # Sempre gera o Excel e mantém as abas de metadados (info_execucao etc.)
+      - name: Run ETL (always produce current Excel with metadata)
+        run: |
+          python etl_pipeline_test.py
+          ls -la "${{ env.OUT_DIR }}" || true
 
       - name: Install rclone
         run: |
@@ -23,11 +60,20 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "${RCLONE_CONFIG_SECRET}" > ~/.config/rclone/rclone.conf
           chmod 600 ~/.config/rclone/rclone.conf
-          echo "✅ rclone.conf escrito"
           rclone listremotes
-          rclone about onedrive: || true
+          rclone mkdir "${{ env.ONEDRIVE_DEST }}" || true
 
-      - name: Upload simple test file
+      - name: Upload ETL result (current file) to OneDrive MDA/COPREC
         run: |
-          echo "Teste automático do GitHub → OneDrive" > test_upload.txt
-          rclone copy test_upload.txt onedrive:Documents/testes-github --progress
+          test -f "${{ env.OUT_DIR }}/${{ env.OUT_FILE }}" \
+            && rclone copy "${{ env.OUT_DIR }}/${{ env.OUT_FILE }}" "${{ env.ONEDRIVE_DEST }}" --progress \
+            || (echo "Arquivo não encontrado: ${{ env.OUT_DIR }}/${{ env.OUT_FILE }}" && exit 1)
+
+      # (Opcional) enviar também o backup mais recente com timestamp
+      - name: Upload latest backup (optional)
+        run: |
+          LAST=$(ls -t out/backups/*/*/*/siconv_convenio_filtrado_*.xlsx 2>/dev/null | head -n 1 || true)
+          if [ -n "$LAST" ]; then
+            rclone mkdir "${{ env.ONEDRIVE_DEST }}/backups" || true
+            rclone copy "$LAST" "${{ env.ONEDRIVE_DEST }}/backups" --progress
+          fi
