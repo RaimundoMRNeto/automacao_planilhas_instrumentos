@@ -33,12 +33,12 @@ jobs:
           mkdir -p config data/cache out/current out/backups state
           if [ ! -f "config/ids_convenio.txt" ]; then echo "700000" > config/ids_convenio.txt; fi
           if [ ! -f "config/columns_convenio.yaml" ]; then
-            cat > config/columns_convenio.yaml <<'YAML'
-tipos_colunas:
-  texto: []
-  data: []
-  numerico: []
-YAML
+            printf '%s\n' \
+              'tipos_colunas:' \
+              '  texto: []' \
+              '  data: []' \
+              '  numerico: []' \
+              > config/columns_convenio.yaml
           fi
 
       # Sempre gera o Excel e mantém as abas de metadados (info_execucao etc.)
