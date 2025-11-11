@@ -1,131 +1,33 @@
-name: Run ETL SICONV (manual/scheduled)
+name: Test upload to OneDrive Personal
 
 on:
-  workflow_dispatch: {}
-  # schedule:
-  #   - cron: "30 9 * * *"
-
-concurrency:
-  group: etl-siconv
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-
-env:
-  TZ: America/Sao_Paulo
+  workflow_dispatch: {}  # executa manualmente
 
 jobs:
-  etl:
+  test-onedrive:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Prepare folders
-        run: |
-          mkdir -p config data/cache out/current out/backups state
-          if [ ! -f "config/ids_convenio.txt" ]; then echo "700000" > config/ids_convenio.txt; fi
-          if [ ! -f "config/columns_convenio.yaml" ]; then echo "tipos_colunas: {}" > config/columns_convenio.yaml; fi
-
-      # >>> garante que o ETL gere o XLSX mesmo se a data_carga não mudou
-      - name: Force re-run (limpa state)
-        run: |
-          rm -f state/last_run.json || true
-
-      - name: Run ETL
-        run: |
-          python etl_pipeline.py
-
-      - name: Upload artifact (Excel atual)
-        uses: actions/upload-artifact@v4
-        with:
-          name: siconv_convenio_filtrado_atual
-          path: out/current/siconv_convenio_filtrado_atual.xlsx
-          if-no-files-found: warn
-
-      - name: Upload artifacts (backup do dia)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: siconv_backups_${{ github.run_id }}
-          path: out/backups/**
-          if-no-files-found: ignore
-
-            # === Upload automático ao OneDrive via rclone
       - name: Install rclone
         run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
 
-            - name: Upload to OneDrive via rclone (auto-base: raiz/Documents/Documentos)
-        if: success()
+      - name: Configure rclone from secret
+        shell: bash
         env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          RCLONE_CONFIG_SECRET: ${{ secrets.RCLONE_CONFIG }}
         run: |
-          set -euo pipefail
-          printf "%s" "$RCLONE_CONFIG" > rclone.conf
+          mkdir -p ~/.config/rclone
+          echo "${RCLONE_CONFIG_SECRET}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          echo "✅ rclone.conf escrito"
+          rclone listremotes
+          rclone about onedrive: || true
 
-          echo "== Seções no rclone.conf =="
-          grep -o '^\[[^]]\+\]' rclone.conf || true
-
-          # REMOTE: usa [onedrive] se existir; senão, 1ª seção do arquivo
-          if grep -q '^\[onedrive\]' rclone.conf; then
-            REMOTE="onedrive"
-          else
-            REMOTE="$(awk -F'[][]' '/^\[.*\]/{print $2; exit}' rclone.conf)"
-          fi
-          [ -n "${REMOTE:-}" ] || { echo "ERRO: REMOTE não detectado no rclone.conf"; exit 1; }
-          echo "REMOTE escolhido: $REMOTE"
-
-          echo "== Listando raiz do REMOTE =="
-          rclone --config rclone.conf lsd "$REMOTE:/" || true
-
-          # Detecta base: "/Documents", "/Documentos" ou raiz ("")
-          BASE_PREFIX=""
-          if rclone --config rclone.conf lsd "$REMOTE:/Documents" >/dev/null 2>&1; then
-            BASE_PREFIX="/Documents"
-          elif rclone --config rclone.conf lsd "$REMOTE:/Documentos" >/dev/null 2>&1; then
-            BASE_PREFIX="/Documentos"
-          fi
-          echo "BASE_PREFIX: '$BASE_PREFIX'"
-
-          DEST_CURRENT="$REMOTE:${BASE_PREFIX}/MDA/COPREC/automacao_planilhas_instrumentos"
-          TODAY="$(date +%Y/%m/%d)"
-          DEST_BACKUPS="$REMOTE:${BASE_PREFIX}/MDA/COPREC/backups/$TODAY"
-
-          # Garante estrutura
-          rclone --config rclone.conf mkdir "$REMOTE:${BASE_PREFIX}/MDA" || true
-          rclone --config rclone.conf mkdir "$REMOTE:${BASE_PREFIX}/MDA/COPREC" || true
-          rclone --config rclone.conf mkdir "$DEST_CURRENT" || true
-          rclone --config rclone.conf mkdir "$DEST_BACKUPS" || true
-
-          # Confere arquivo local
-          [ -f "out/current/siconv_convenio_filtrado_atual.xlsx" ] || { echo "ERRO: Excel não encontrado em out/current/"; exit 1; }
-
-          # Envia arquivo “atual”
-          rclone --config rclone.conf copy "out/current/siconv_convenio_filtrado_atual.xlsx" "$DEST_CURRENT" \
-                 --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
-                 --retries 5 --low-level-retries 20 --retries-sleep 2s
-
-          # Envia backups do dia (se existirem)
-          rclone --config rclone.conf copy "out/backups/$(date +%Y)/$(date +%m)/$(date +%d)/" "$DEST_BACKUPS" \
-                 --create-empty-src-dirs --include "*.xlsx" \
-                 --progress --stats-one-line --stats=30s --update --onedrive-no-versions \
-                 --retries 5 --low-level-retries 20 --retries-sleep 2s || true
-
-          # Verificações
-          echo "== Verificação (CURRENT) ==";   rclone --config rclone.conf lsl "$DEST_CURRENT"  || true
-          echo "== Verificação (BACKUPS) ==";   rclone --config rclone.conf lsl "$DEST_BACKUPS"  || true
+      - name: Upload simple test file
+        run: |
+          echo "Teste automático do GitHub → OneDrive" > test_upload.txt
+          rclone copy test_upload.txt onedrive:Documents/testes-github --progress
