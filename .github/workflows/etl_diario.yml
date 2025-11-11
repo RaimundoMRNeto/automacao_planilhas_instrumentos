@@ -1,4 +1,4 @@
-name: ETL SICONV → OneDrive (MDA/COPREC)
+name: ETL SICONV → OneDrive (MDA/COPREC/automacao_github)
 
 on:
   workflow_dispatch: {}  # executa manualmente
