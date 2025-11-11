@@ -8,7 +8,7 @@ on:
 env:
   OUT_DIR: out/current
   OUT_FILE: siconv_convenio_filtrado_atual.xlsx
-  ONEDRIVE_DEST: "onedrive:MDA/COPREC"   # destino desejado no OneDrive
+  ONEDRIVE_DEST: "onedrive:MDA/COPREC/automacao_github"   # destino desejado no OneDrive
 
 jobs:
   etl-onedrive:
